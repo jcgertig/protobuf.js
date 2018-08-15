@@ -129,7 +129,7 @@ Enum.prototype.add = function add(name, id, comment) {
         throw Error("name '" + name + "' is reserved in " + this);
 
     if (this.valuesById[id] !== undefined) {
-        if (!(this.options && this.options.allow_alias))
+        if (this.options && this.options.allow_alias === false)
             throw Error("duplicate id " + id + " in " + this);
         this.values[name] = id;
     } else
