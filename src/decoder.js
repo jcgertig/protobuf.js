@@ -85,9 +85,10 @@ function decoder(mtype) {
                 ("break");
     // Unknown fields
     } gen
-            ("default:")
+            ("default: {")
                 ("m[t >> 3] = r.string();")
                 ("break;")
+            ("}")
         ("}")
     ("}");
 

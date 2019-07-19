@@ -28,8 +28,8 @@ function genValuePartial_fromObject(gen, field, fieldIndex, prop) {
                 gen
                 ("case %j:", keys[i])
                 ("case %i:", values[keys[i]])
-                    ("m%s=%j", prop, values[keys[i]])
-                    ("break");
+                    ("m%s=%j;", prop, values[keys[i]])
+                    ("break;");
             } gen
             ("}");
         } else {
