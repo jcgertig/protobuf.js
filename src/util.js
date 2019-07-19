@@ -79,6 +79,17 @@ util.safeProp = function safeProp(prop) {
 };
 
 /**
+ * Returns a safe property name for the specified property name.
+ * @param {string} prop Property name
+ * @returns {string} Safe accessor
+ */
+util.safeName = function safeName(prop) {
+    if (!/^[$\w_]+$/.test(prop) || util.isReserved(prop))
+        return "\"" + prop.replace(safePropBackslashRe, "\\\\").replace(safePropQuoteRe, "\\\"") + "\"";
+    return "\"" + prop + "\"";
+};
+
+/**
  * Converts the first character of a string to upper case.
  * @param {string} str String to convert
  * @returns {string} Converted string

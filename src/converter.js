@@ -26,16 +26,18 @@ function genValuePartial_fromObject(gen, field, fieldIndex, prop) {
                 if (field.repeated && values[keys[i]] === field.typeDefault) gen
                 ("default:");
                 gen
-                ("case%j:", keys[i])
+                ("case %j:", keys[i])
                 ("case %i:", values[keys[i]])
                     ("m%s=%j", prop, values[keys[i]])
                     ("break");
             } gen
             ("}");
-        } else gen
+        } else {
+            gen
             ("if(typeof d%s!==\"object\")", prop)
                 ("throw TypeError(%j)", field.fullName + ": object expected")
             ("m%s=types[%i].fromObject(d%s)", prop, fieldIndex, prop);
+        }
     } else {
         var isUnsigned = false;
         switch (field.type) {
@@ -103,43 +105,65 @@ converter.fromObject = function fromObject(mtype) {
     if (!fields.length) return gen
     ("return new this.ctor");
     gen
-    ("var m=new this.ctor");
+    ("var m=new this.ctor")
+    ("Object.keys(d).forEach(function (keyName) {")
+        ("swtich (keyName) {")
     for (var i = 0; i < fields.length; ++i) {
         var field  = fields[i].resolve(),
-            prop   = util.safeProp(field.name);
+            prop   = util.safeProp(field.name)
+            name   = util.safeName(field.name);
 
         // Map fields
         if (field.map) { gen
-    ("if(d%s){", prop)
-        ("if(typeof d%s!==\"object\")", prop)
-            ("throw TypeError(%j)", field.fullName + ": object expected")
-        ("m%s={}", prop)
-        ("for(var ks=Object.keys(d%s),i=0;i<ks.length;++i){", prop);
-            genValuePartial_fromObject(gen, field, /* not sorted */ i, prop + "[ks[i]]")
-        ("}")
-    ("}");
+            ("case %s: {", name)
+                ("if(d%s){", prop)
+                    ("if(typeof d%s!==\"object\")", prop)
+                        ("throw TypeError(%j)", field.fullName + ": object expected")
+                    ("m%s={}", prop)
+                    ("for(var ks=Object.keys(d%s),i=0;i<ks.length;++i){", prop);
+                        genValuePartial_fromObject(gen, field, /* not sorted */ i, prop + "[ks[i]]")
+                    ("}")
+                ("}")
+                ("break;")
+            ("}");
 
         // Repeated fields
         } else if (field.repeated) { gen
-    ("if(d%s){", prop)
-        ("if(!Array.isArray(d%s))", prop)
-            ("throw TypeError(%j)", field.fullName + ": array expected")
-        ("m%s=[]", prop)
-        ("for(var i=0;i<d%s.length;++i){", prop);
-            genValuePartial_fromObject(gen, field, /* not sorted */ i, prop + "[i]")
-        ("}")
-    ("}");
+            ("case %s: {", name)
+                ("if(d%s){", prop)
+                    ("if(!Array.isArray(d%s))", prop)
+                        ("throw TypeError(%j)", field.fullName + ": array expected")
+                    ("m%s=[]", prop)
+                    ("for(var i=0;i<d%s.length;++i){", prop);
+                        genValuePartial_fromObject(gen, field, /* not sorted */ i, prop + "[i]")
+                    ("}")
+                ("}")
+                ("break;")
+            ("}");
 
         // Non-repeated fields
         } else {
+            ("case %s: {", name)
             if (!(field.resolvedType instanceof Enum)) gen // no need to test for null/undefined if an enum (uses switch)
-    ("if(d%s!=null){", prop); // !== undefined && !== null
-        genValuePartial_fromObject(gen, field, /* not sorted */ i, prop);
+                ("if(d%s!=null){", prop); // !== undefined && !== null
+                genValuePartial_fromObject(gen, field, /* not sorted */ i, prop);
             if (!(field.resolvedType instanceof Enum)) gen
-    ("}");
+                ("}");
+            gen
+                ("break;")
+            ("}");
         }
-    } return gen
+    }
+    gen
+            ("default: {")
+                ("m[keyName]=String(d[keyName]);")
+                ("break;")
+            ("}")
+        ("}")
+    ("});")
     ("return m");
+    console.log(gen.toString());
+    return gen;
     /* eslint-enable no-unexpected-multiline, block-scoped-var, no-redeclare */
 };
 
@@ -258,36 +282,50 @@ converter.toObject = function toObject(mtype) {
     ("}");
     }
     var hasKs2 = false;
+    gen
+    ("Object.keys(m).forEach(function (keyName) {")
+        ("switch (keyName) {")
     for (i = 0; i < fields.length; ++i) {
         var field = fields[i],
             index = mtype._fieldsArray.indexOf(field),
-            prop  = util.safeProp(field.name);
+            prop  = util.safeProp(field.name),
+            name  = util.safeName(field.name);
+        gen
+            ("case %s: {", name);
         if (field.map) {
             if (!hasKs2) { hasKs2 = true; gen
-    ("var ks2");
+                ("var ks2");
             } gen
-    ("if(m%s&&(ks2=Object.keys(m%s)).length){", prop, prop)
-        ("d%s={}", prop)
-        ("for(var j=0;j<ks2.length;++j){");
-            genValuePartial_toObject(gen, field, /* sorted */ index, prop + "[ks2[j]]")
-        ("}");
+                ("if(m%s&&(ks2=Object.keys(m%s)).length){", prop, prop)
+                    ("d%s={}", prop)
+                    ("for(var j=0;j<ks2.length;++j){");
+                        genValuePartial_toObject(gen, field, /* sorted */ index, prop + "[ks2[j]]")
+                    ("}");
         } else if (field.repeated) { gen
-    ("if(m%s&&m%s.length){", prop, prop)
-        ("d%s=[]", prop)
-        ("for(var j=0;j<m%s.length;++j){", prop);
-            genValuePartial_toObject(gen, field, /* sorted */ index, prop + "[j]")
-        ("}");
+                ("if(m%s&&m%s.length){", prop, prop)
+                    ("d%s=[]", prop)
+                    ("for(var j=0;j<m%s.length;++j){", prop);
+                        genValuePartial_toObject(gen, field, /* sorted */ index, prop + "[j]")
+                    ("}");
         } else { gen
-    ("if(m%s!=null&&m.hasOwnProperty(%j)){", prop, field.name); // !== undefined && !== null
-        genValuePartial_toObject(gen, field, /* sorted */ index, prop);
-        if (field.partOf) gen
-        ("if(o.oneofs)")
-            ("d%s=%j", util.safeProp(field.partOf.name), field.name);
+                ("if(m%s!=null&&m.hasOwnProperty(%j)){", prop, field.name); // !== undefined && !== null
+                    genValuePartial_toObject(gen, field, /* sorted */ index, prop);
+            if (field.partOf) gen
+                    ("if(o.oneofs)")
+                        ("d%s=%j", util.safeProp(field.partOf.name), field.name);
         }
         gen
-    ("}");
+                ("}")
+                ("break;")
+            ("}");
     }
     return gen
+            ("deafult: {")
+              ("d[keyName]=m[keyName];")
+              ("break;")
+            ("}")
+        ("}")
+    ("});")
     ("return d");
     /* eslint-enable no-unexpected-multiline, block-scoped-var, no-redeclare */
 };

@@ -36,67 +36,87 @@ function encoder(mtype) {
     // "when a message is serialized its known fields should be written sequentially by field number"
     var fields = /* initializes */ mtype.fieldsArray.slice().sort(util.compareFieldsById);
 
+    gen
+    ("Object.keys(m).forEach(function (keyName) {")
+        ("switch (keyName) {");
+
     for (var i = 0; i < fields.length; ++i) {
         var field    = fields[i].resolve(),
             index    = mtype._fieldsArray.indexOf(field),
             type     = field.resolvedType instanceof Enum ? "int32" : field.type,
-            wireType = types.basic[type];
+            wireType = types.basic[type],
+            name     = util.safeName(field.name);
             ref      = "m" + util.safeProp(field.name);
 
         // Map fields
         if (field.map) {
             gen
-    ("if(%s!=null&&m.hasOwnProperty(%j)){", ref, field.name) // !== undefined && !== null
-        ("for(var ks=Object.keys(%s),i=0;i<ks.length;++i){", ref)
-            ("w.uint32(%i).fork().uint32(%i).%s(ks[i])", (field.id << 3 | 2) >>> 0, 8 | types.mapKey[field.keyType], field.keyType);
-            if (wireType === undefined) gen
-            ("types[%i].encode(%s[ks[i]],w.uint32(18).fork()).ldelim().ldelim()", index, ref); // can't be groups
-            else gen
-            (".uint32(%i).%s(%s[ks[i]]).ldelim()", 16 | wireType, type, ref);
-            gen
-        ("}")
-    ("}");
+            ("case %s: {", name)
+                ("if(%s!=null && typeof %s === 'object'){", ref, ref) // !== undefined && !== null
+                    ("for(var ks=Object.keys(%s),i=0;i<ks.length;++i){", ref)
+                        ("w.uint32(%i).fork().uint32(%i).%s(ks[i])", (field.id << 3 | 2) >>> 0, 8 | types.mapKey[field.keyType], field.keyType);
+                        if (wireType === undefined) gen
+                        ("types[%i].encode(%s[ks[i]],w.uint32(18).fork()).ldelim().ldelim()", index, ref); // can't be groups
+                        else gen
+                        (".uint32(%i).%s(%s[ks[i]]).ldelim()", 16 | wireType, type, ref);
+                        gen
+                    ("}")
+                ("}")
+                ("break;")
+            ("}");
 
             // Repeated fields
         } else if (field.repeated) { gen
-    ("if(%s!=null&&%s.length){", ref, ref); // !== undefined && !== null
+           ("case %s: {", name)
+              ("if(%s!=null&&%s.length){", ref, ref); // !== undefined && !== null
 
             // Packed repeated
             if (field.packed && types.packed[type] !== undefined) { gen
 
-        ("w.uint32(%i).fork()", (field.id << 3 | 2) >>> 0)
-        ("for(var i=0;i<%s.length;++i)", ref)
-            ("w.%s(%s[i])", type, ref)
-        ("w.ldelim()");
+                  ("w.uint32(%i).fork()", (field.id << 3 | 2) >>> 0)
+                  ("for(var i=0;i<%s.length;++i)", ref)
+                      ("w.%s(%s[i])", type, ref)
+                  ("w.ldelim()");
 
             // Non-packed
             } else { gen
 
-        ("for(var i=0;i<%s.length;++i)", ref);
+                    ("for(var i=0;i<%s.length;++i)", ref);
                 if (wireType === undefined)
-            genTypePartial(gen, field, index, ref + "[i]");
+                      genTypePartial(gen, field, index, ref + "[i]");
                 else gen
-            ("w.uint32(%i).%s(%s[i])", (field.id << 3 | wireType) >>> 0, type, ref);
+                      ("w.uint32(%i).%s(%s[i])", (field.id << 3 | wireType) >>> 0, type, ref);
 
             } gen
-    ("}");
+                ("}")
+                ("break;")
+            ("}");
 
         // Non-repeated
-        } else {
-            if (field.optional) gen
-    ("if(%s!=null&&m.hasOwnProperty(%j))", ref, field.name); // !== undefined && !== null
+        } else if (field.optional) { gen
+            ("case %s: {", name)
+                ("if(%s!=null&&m.hasOwnProperty(%j))", ref, field.name); // !== undefined && !== null
 
             if (wireType === undefined)
-        genTypePartial(gen, field, index, ref);
+                    genTypePartial(gen, field, index, ref);
             else gen
-        ("w.uint32(%i).%s(%s)", (field.id << 3 | wireType) >>> 0, type, ref);
-
+                    ("w.uint32(%i).%s(%s)", (field.id << 3 | wireType) >>> 0, type, ref);
+            gen
+                ("}")
+                ("break;")
+            ("}")
         }
     }
-    
-    // unkown fields
-    gen("if(m[\"__unknownFields\"])")
-        ("w.rawBytes(m[\"__unknownFields\"]);");
+
+    gen
+            ("default: {")
+                ("if (String(keyName).length > 0 && typeof m[keyName] !== \"undefined\") {")
+                    ("w.uint32((keyName << 3 | 2) >>> 0).string(String(m[keyName]))")
+                ("}")
+                ("break;")
+            ("}")
+        ("}")
+    ("});");
 
     return gen
     ("return w");

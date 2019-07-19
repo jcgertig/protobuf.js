@@ -86,9 +86,8 @@ function decoder(mtype) {
     // Unknown fields
     } gen
             ("default:")
-                ("Object.defineProperty(m,\"__unknownFields\",{writable:true,configurable:true,enumerable:false })")
-                ("m[\"__unknownFields\"]=r.rawBytes(t,m[\"__unknownFields\"])")
-                ("break")
+                ("m[t >> 3] = r.string();")
+                ("break;")
 
         ("}")
     ("}");

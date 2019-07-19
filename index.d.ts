@@ -1193,6 +1193,14 @@ export class Reader {
      * @returns `this`
      */
     public skipType(wireType: number): Reader;
+
+    /**
+     * Returns the next element of the specified wire type as bytes
+     * @param id_wireType field id and wire type
+     * @param append previously encountered unknown fields, if any
+     * @returns value read
+     */
+    public rawBytes(id_wireType: number, append: Uint8Array): Uint8Array;
 }
 
 /** Wire format reader using node buffers. */
@@ -1619,6 +1627,13 @@ export class Type extends NamespaceBase {
      * @throws {util.ProtocolError} If required fields are missing
      */
     public decodeDelimited(reader: (Reader|Uint8Array)): Message<{}>;
+
+    /**
+     * Removes unknown fields that have been deserialized into the message
+     * @param message Message instance or plain object
+     * @returns message with unknown fields stripped
+     */
+    public discardUnknownFields(message: (Message<{}>|{ [k: string]: any })): (Message<{}>|{ [k: string]: any });
 
     /**
      * Verifies that field values are valid and that required fields are present.
@@ -2585,6 +2600,13 @@ export class Writer {
      * @returns `this`
      */
     public bytes(value: (Uint8Array|string)): Writer;
+
+    /**
+     * Writes raw bytes with no wire type of length prefixed
+     * @param value bytes to add
+     * @returns `this`
+     */
+    public rawBytes(value: Uint8Array): Writer;
 
     /**
      * Writes a string.
