@@ -107,10 +107,10 @@ converter.fromObject = function fromObject(mtype) {
     gen
     ("var m=new this.ctor")
     ("Object.keys(d).forEach(function (keyName) {")
-        ("swtich (keyName) {")
+        ("switch (keyName) {")
     for (var i = 0; i < fields.length; ++i) {
         var field  = fields[i].resolve(),
-            prop   = util.safeProp(field.name)
+            prop   = util.safeProp(field.name),
             name   = util.safeName(field.name);
 
         // Map fields
@@ -143,7 +143,7 @@ converter.fromObject = function fromObject(mtype) {
 
         // Non-repeated fields
         } else {
-            ("case %s: {", name)
+            gen("case %s: {", name)
             if (!(field.resolvedType instanceof Enum)) gen // no need to test for null/undefined if an enum (uses switch)
                 ("if(d%s!=null){", prop); // !== undefined && !== null
                 genValuePartial_fromObject(gen, field, /* not sorted */ i, prop);
@@ -162,7 +162,6 @@ converter.fromObject = function fromObject(mtype) {
         ("}")
     ("});")
     ("return m");
-    console.log(gen.toString());
     return gen;
     /* eslint-enable no-unexpected-multiline, block-scoped-var, no-redeclare */
 };
