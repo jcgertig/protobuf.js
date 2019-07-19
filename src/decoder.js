@@ -88,7 +88,6 @@ function decoder(mtype) {
             ("default:")
                 ("m[t >> 3] = r.string();")
                 ("break;")
-
         ("}")
     ("}");
 
